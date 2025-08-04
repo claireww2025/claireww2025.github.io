@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2025/26 英国顶尖大学交互式探索器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Calm Harmony -->
+    <!-- Application Structure Plan: The application is designed as a single-page interactive dashboard. The core is the "University Explorer," which allows users to filter a grid of university cards based on their profile (degree level, academic path, ranking). This is more user-friendly than a linear report, enabling direct comparison and personalized discovery. Clicking a card opens a detailed modal, preventing page reloads. This structure is supported by a "Key Insights" section that uses charts to visualize strategic advice from the report (e.g., application pathways, postgraduate GPA tiers), making complex information digestible. This task-oriented design directly serves the user's goal: finding the right university based on their specific situation. -->
+    <!-- Visualization & Content Choices: Report data is structured into a JS array of objects. Goal: Organize/Compare -> University cards in a filterable grid (HTML/Tailwind/JS). Goal: Inform (Detailed) -> A modal window (HTML/JS) dynamically populated with university-specific data, using tabs to separate undergraduate/postgraduate info. Goal: Compare/Inform -> Bar Chart (Chart.js) to visualize postgraduate GPA requirements based on Chinese university tiers. Goal: Compare/Inform -> Donut Chart (Chart.js) to show the scholarship landscape (partial vs. full). Goal: Compare -> An interactive diagram (HTML/CSS) illustrates the pros and cons of different undergraduate application pathways. These choices turn dense text into an interactive, explorable experience. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background-color: #F8F7F4;
+            color: #4A5568;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 320px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 380px;
+            }
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #E2E8F0;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #A7C7E7;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #89B3D9;
+        }
+        .modal-content-area {
+             max-height: calc(100vh - 12rem);
+        }
+        .pathway-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .pathway-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <header class="bg-white shadow-md sticky top-0 z-40">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <h1 class="text-2xl md:text-3xl font-bold text-slate-800">2025/26 英国顶尖大学交互式探索器</h1>
+            <p class="mt-1 text-slate-600">基于专家分析报告，为您提供个性化的院校申请洞察。</p>
+        </div>
+    </header>
+
+    <main class="container mx-auto p-4 sm:p-6 lg:p-8">
+
+        <section id="explorer" class="mb-12">
+            <h2 class="text-2xl font-bold text-slate-700 mb-4">大学浏览器</h2>
+            <div class="bg-white p-4 rounded-lg shadow-sm mb-6 sticky top-[88px] z-30">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                        <label for="degree-level" class="block text-sm font-medium text-gray-700">学位水平</label>
+                        <select id="degree-level" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-[#A7C7E7] focus:border-[#A7C7E7] sm:text-sm rounded-md">
+                            <option value="all">所有</option>
+                            <option value="undergraduate">本科</option>
+                            <option value="postgraduate">硕士</option>
+                        </select>
+                    </div>
+                    <div id="undergrad-path-filter" class="hidden">
+                        <label for="undergrad-path" class="block text-sm font-medium text-gray-700">本科申请路径</label>
+                        <select id="undergrad-path" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-[#A7C7E7] focus:border-[#A7C7E7] sm:text-sm rounded-md">
+                            <option value="all">所有路径</option>
+                            <option value="gaokao">高考直录</option>
+                            <option value="foundation">预科/转学</option>
+                            <option value="international">国际课程 (A-Level/IB)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="qs-rank" class="block text-sm font-medium text-gray-700">QS 排名范围</label>
+                        <select id="qs-rank" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-[#A7C7E7] focus:border-[#A7C7E7] sm:text-sm rounded-md">
+                            <option value="all">所有排名</option>
+                            <option value="1-50">1-50</option>
+                            <option value="51-100">51-100</option>
+                            <option value="101-300">101-300</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="search-uni" class="block text-sm font-medium text-gray-700">搜索大学名称</label>
+                        <input type="text" id="search-uni" placeholder="例如：曼彻斯特" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#A7C7E7] focus:border-[#A7C7E7] sm:text-sm">
+                    </div>
+                    <div class="flex items-end">
+                         <div class="relative flex items-start">
+                            <div class="flex items-center h-5">
+                                <input id="scholarship" type="checkbox" class="focus:ring-[#A7C7E7] h-4 w-4 text-[#A7C7E7] border-gray-300 rounded">
+                            </div>
+                            <div class="ml-3 text-sm">
+                                <label for="scholarship" class="font-medium text-gray-700">可申请奖学金</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="university-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            </div>
+             <div id="no-results" class="hidden text-center py-12">
+                <p class="text-xl text-gray-500">未找到符合条件的大学。</p>
+                <p class="text-gray-400 mt-2">请尝试调整筛选条件。</p>
+            </div>
+        </section>
+
+        <hr class="my-12 border-t border-gray-200">
+
+        <section id="insights" class="mb-12">
+            <h2 class="text-2xl font-bold text-slate-700 mb-6 text-center">核心申请洞察</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                <div class="bg-white p-6 rounded-lg shadow-sm">
+                     <h3 class="text-xl font-semibold text-slate-800 mb-1 text-center">本科申请路径对比</h3>
+                     <p class="text-sm text-center text-slate-500 mb-4">不同路径对应不同机遇和挑战，选择最适合你的赛道。</p>
+                     <div class="space-y-4">
+                        <div class="pathway-card border-l-4 border-green-500 bg-green-50 p-4 rounded-r-lg">
+                            <h4 class="font-bold text-green-800">高考直录</h4>
+                            <p class="text-sm text-green-700 mt-1"><strong>优势:</strong> 成本效益高，无需额外就读国际课程。</p>
+                            <p class="text-sm text-green-700"><strong>劣势:</strong> 顶尖院校不接受，成绩要求高 (通常75%-80%+)。</p>
+                            <p class="text-sm text-green-700"><strong>适用:</strong> 格拉斯哥、伯明翰、杜伦、利兹、卡迪夫等。</p>
+                        </div>
+                        <div class="pathway-card border-l-4 border-blue-500 bg-blue-50 p-4 rounded-r-lg">
+                            <h4 class="font-bold text-blue-800">国际课程 (A-Level/IB)</h4>
+                            <p class="text-sm text-blue-700 mt-1"><strong>优势:</strong> 适用所有大学的“黄金标准”，与英教学衔接好。</p>
+                            <p class="text-sm text-blue-700"><strong>劣势:</strong> 时间与经济成本高昂。</p>
+                            <p class="text-sm text-blue-700"><strong>适用:</strong> 所有英国大学，包括牛津、剑桥、帝国理工、LSE。</p>
+                        </div>
+                         <div class="pathway-card border-l-4 border-yellow-500 bg-yellow-50 p-4 rounded-r-lg">
+                            <h4 class="font-bold text-yellow-800">预科/转学</h4>
+                            <p class="text-sm text-yellow-700 mt-1"><strong>优势:</strong> 提供学术与语言过渡，保证升学机会。</p>
+                            <p class="text-sm text-yellow-700"><strong>劣势:</strong> 额外一年时间与费用，认可度有限。</p>
+                            <p class="text-sm text-yellow-700"><strong>适用:</strong> 曼彻斯特、爱丁堡、布里斯托、华威等。</p>
+                        </div>
+                     </div>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-sm">
+                    <h3 class="text-xl font-semibold text-slate-800 mb-1 text-center">硕士申请：院校背景与均分要求</h3>
+                    <p class="text-sm text-center text-slate-500 mb-4">英国大学对中国本科院校有分级，这直接影响录取均分要求。</p>
+                    <div class="chart-container">
+                        <canvas id="gpaChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-sm lg:col-span-2">
+                     <h3 class="text-xl font-semibold text-slate-800 mb-1 text-center">国际学生奖学金概览</h3>
+                     <p class="text-sm text-center text-slate-500 mb-4">了解奖学金的真实情况，合理规划留学财务。</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                        <div class="chart-container !h-64 md:!h-72">
+                            <canvas id="scholarshipChart"></canvas>
+                        </div>
+                        <div class="text-slate-600 space-y-3">
+                            <p><strong>部分学费减免:</strong> 这是最常见的奖学金形式，金额通常在 <strong class="text-[#E07A5F]">£2,000 - £10,000</strong> 之间。它们是减轻经济负担的有效辅助，但不能覆盖全部开销。</p>
+                            <p><strong>全额奖学金:</strong> 如志奋领、盖茨剑桥、罗德奖学金等，数量稀少，竞争异常激烈。评选标准远超学术成绩，更看重<strong class="text-[#E07A5F]">领导力潜能</strong>和<strong class="text-[#E07A5F]">社会贡献</strong>。</p>
+                            <p class="font-semibold"><strong>核心建议:</strong> 应将自费留学作为主要财务预案，将奖学金视为锦上添花的辅助手段。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <hr class="my-12 border-t border-gray-200">
+
+        <section id="advice">
+            <h2 class="text-2xl font-bold text-slate-700 mb-6 text-center">战略申请最终建议</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-white p-6 rounded-lg shadow-sm text-center">
+                    <div class="flex justify-center items-center mx-auto h-12 w-12 rounded-full bg-[#A7C7E7] bg-opacity-30 mb-4">
+                        <span class="text-2xl">🎯</span>
+                    </div>
+                    <h3 class="font-semibold text-slate-800">制定分层策略</h3>
+                    <p class="text-slate-600 mt-2 text-sm">结合自身情况，制定包含“冲刺”、“匹配”和“保底”三个层级的院校清单，尽早提交申请，抢占先机。</p>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-sm text-center">
+                     <div class="flex justify-center items-center mx-auto h-12 w-12 rounded-full bg-[#A7C7E7] bg-opacity-30 mb-4">
+                        <span class="text-2xl">🔍</span>
+                    </div>
+                    <h3 class="font-semibold text-slate-800">核实官方信息</h3>
+                    <p class="text-slate-600 mt-2 text-sm">大学政策每年都可能更新。务必在申请前访问目标院校官网，核实所有要求和截止日期，并积极参加线上招生会。</p>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-sm text-center">
+                     <div class="flex justify-center items-center mx-auto h-12 w-12 rounded-full bg-[#A7C7E7] bg-opacity-30 mb-4">
+                        <span class="text-2xl">🛂</span>
+                    </div>
+                    <h3 class="font-semibold text-slate-800">准备签证材料</h3>
+                    <p class="text-slate-600 mt-2 text-sm">获得录取通知书后，立即开始准备签证。提前了解资金证明要求，理工科学生需留意是否要申请ATAS证书。</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-slate-800 text-white mt-12">
+        <div class="container mx-auto px-8 py-4 text-center text-sm">
+            <p>本应用数据来源于《2025/2026年度英国顶尖大学（QS 1-300）专家分析报告》。</p>
+            <p class="opacity-75 mt-1">所有信息仅供参考，请务必以各大学官网发布的最新信息为准。</p>
+        </div>
+    </footer>
+
+    <div id="details-modal" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-3xl flex flex-col">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 id="modal-title" class="text-xl font-bold text-slate-800"></h3>
+                <button id="modal-close-btn" class="text-gray-400 hover:text-gray-700 text-2xl font-bold">&times;</button>
+            </div>
+            <div id="modal-content" class="p-6 overflow-y-auto custom-scrollbar modal-content-area">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const universityData = [
+            { id: 1, name: "帝国理工学院", qsRank: 2, scholarship: true,
+              coreSubjects: "工程学、医学、自然科学、商科",
+              undergraduate: {
+                gaokao: "no_foundation",
+                path: "通常不接受高考直录，需完成A-Levels、IB文凭或受认可的预科课程。",
+                alevel: "AAA 至 A*AA",
+                ib: "38至42分",
+                english: "标准：雅思6.5(6.0)；更高：雅思7.0(6.5)"
+              },
+              postgraduate: {
+                requirement: "通常要求2:1及以上学位。商学院要求211大学背景，均分不低于85%。",
+                english: "标准：雅思6.5(6.0)；更高：雅思7.0(6.5)"
+              }
+            },
+            { id: 2, name: "牛津大学", qsRank: 3, scholarship: true,
+              coreSubjects: "人文社科、医学、生命科学、数学",
+              undergraduate: {
+                gaokao: "no",
+                path: "不接受高考成绩直录，必须通过A-Levels、IB文凭等国际课程申请。",
+                alevel: "A*A*A 至 AAA",
+                ib: "38至40分",
+                english: "雅思7.5(7.0) 或 托福110"
+              },
+              postgraduate: {
+                requirement: "要求极高，通常为一等或强二等一学位。中国顶尖大学均分85-90%以上。",
+                english: "雅思7.5(7.0) 或 托福110"
+              }
+            },
+            { id: 3, name: "剑桥大学", qsRank: 5, scholarship: true,
+              coreSubjects: "自然科学、工程学、人文社科、数学",
+              undergraduate: {
+                gaokao: "no",
+                path: "不接受高考成绩直录，必须通过A-Levels、IB文凭等国际课程申请。",
+                alevel: "A*A*A 或 A*AA",
+                ib: "40至42分",
+                english: "雅思7.5(7.0) 或 托福110"
+              },
+              postgraduate: {
+                requirement: "要求极高，通常为一等学位。申请者需为中国顶尖大学的顶尖学生。",
+                english: "雅思7.5(7.0) 或更高"
+              }
+            },
+            { id: 4, name: "伦敦大学学院", qsRank: 9, scholarship: true,
+              coreSubjects: "教育学、建筑学、医学、法律、艺术人文",
+              undergraduate: {
+                gaokao: "no_transfer",
+                path: "不接受高考直录。备选路径：在中国认可大学完成两年学业且均分90%，可被考虑。",
+                alevel: "最低ABB",
+                ib: "最低36分",
+                english: "标准：雅思6.5(6.0)；良好：7.0(6.5)；高级：7.5(6.5)"
+              },
+              postgraduate: {
+                requirement: "对中国大学有内部名单。名单内大学均分85%(2:1要求)或80%(2:2要求)；名单外大学均分90%(2:1要求)或85%(2:2要求)。",
+                english: "同本科要求"
+              }
+            },
+            { id: 5, name: "爱丁堡大学", qsRank: 27, scholarship: true,
+              coreSubjects: "艺术人文、医学、计算机科学、兽医学",
+              undergraduate: {
+                gaokao: "no_foundation",
+                path: "不接受高考成绩直录，必须先完成受认可的大学预科课程。",
+                alevel: "A*AA 至 ABB",
+                ib: "34至40分",
+                english: "雅思6.5(5.5) 或 托福92(20)"
+              },
+              postgraduate: {
+                requirement: "要求2:1及以上学位。中国顶尖大学均分80-85%，其他认可大学85-90%以上。",
+                english: "通常高于本科要求，视专业而定"
+              }
+            },
+            { id: 6, name: "曼彻斯特大学", qsRank: 34, scholarship: true,
+              coreSubjects: "商科、工程学、化学、计算机科学、护理学",
+              undergraduate: {
+                gaokao: "no_foundation",
+                path: "不接受高考成绩直录，需完成大学开设的预科课程。",
+                alevel: "视课程而定",
+                ib: "视课程而定",
+                english: "视课程而定，高于UKVI标准"
+              },
+              postgraduate: {
+                requirement: "要求2:1及以上学位。中国优质大学学士学位，最低总平均分80%或GPA 3.0。",
+                english: "需提供雅思或托福，部分商科需GMAT"
+              }
+            },
+            { id: 7, name: "伦敦国王学院", qsRank: 40, scholarship: true,
+              coreSubjects: "护理学、牙科学、法律、心理学、政治学",
+              undergraduate: {
+                gaokao: "no_foundation",
+                path: "不接受高考成绩直录，需完成国际预科课程或持有A-Levels/IB等资格。",
+                alevel: "视课程而定",
+                ib: "视课程而定",
+                english: "雅思6.5至7.5，视课程等级而定"
+              },
+              postgraduate: {
+                requirement: "要求2:1及以上学位。对中国大学有内部名单，通常要求均分80-88%以上。",
+                english: "同本科要求"
+              }
+            },
+            { id: 8, name: "伦敦政治经济学院", qsRank: 50, scholarship: true,
+              coreSubjects: "社会科学、管理学、法律、经济学、政治学",
+              undergraduate: {
+                gaokao: "no",
+                path: "不接受高考成绩直录，必须通过A-Levels、IB等国际课程申请。",
+                alevel: "A*AA 至 AAB",
+                ib: "37至38分",
+                english: "雅思7.0(6.5) 或 托福100"
+              },
+              postgraduate: {
+                requirement: "竞争极激烈，通常需一等学位。中国大学GPA至少3.5/4.0或均分85-90%以上。",
+                english: "雅思7.0 或 托福107"
+              }
+            },
+            { id: 9, name: "布里斯托大学", qsRank: 54, scholarship: true,
+              coreSubjects: "工程学、社会政策、兽医学、地球科学",
+              undergraduate: {
+                gaokao: "no_foundation",
+                path: "极有可能需完成预科课程，申请者必须直接向大学核实最新政策。",
+                alevel: "视课程而定",
+                ib: "视课程而定",
+                english: "分六个等级，视课程而定"
+              },
+              postgraduate: {
+                requirement: "要求2:1及以上学位。对中国大学有分级要求，需优异成绩。",
+                english: "视课程而定。部分理工科需ATAS认证。"
+              }
+            },
+            { id: 10, name: "华威大学", qsRank: 69, scholarship: true,
+              coreSubjects: "统计学、数学、商科、经济学",
+              undergraduate: {
+                gaokao: "no_transfer",
+                path: "通常需完成预科。备选：在中国完成一年本科学位且成绩优异，并有良好高考成绩可被考虑。",
+                alevel: "视课程而定",
+                ib: "视课程而定",
+                english: "雅思6.5至7.0"
+              },
+              postgraduate: {
+                requirement: "对中国大学有分级名单。顶尖大学均分80-85%，其他认可大学82-90%。",
+                english: "雅思6.5至7.0"
+              }
+            },
+            { id: 11, name: "格拉斯哥大学", qsRank: 78, scholarship: true,
+              coreSubjects: "生命科学与医学、艺术人文、兽医学",
+              undergraduate: {
+                gaokao: "yes",
+                path: "接受高考成绩直录。BBB要求对应高考75%；ABB要求对应80%。",
+                alevel: "BBB/ABB",
+                ib: "视课程而定",
+                english: "雅思6.5(6.0)"
+              },
+              postgraduate: {
+                requirement: "对中国大学有详细认可名单和分数要求。2:1要求对应均分70-85%不等。",
+                english: "雅思7.0(7.0)"
+              }
+            },
+            { id: 12, name: "南安普顿大学", qsRank: 80, scholarship: true,
+              coreSubjects: "护理学、考古学、地球与海洋科学、工程学",
+              undergraduate: {
+                gaokao: "no_foundation",
+                path: "通常需完成预科课程或HND课程。",
+                alevel: "视课程而定",
+                ib: "视课程而定",
+                english: "可修读学前语言课"
+              },
+              postgraduate: {
+                requirement: "要求良好成绩，具体分数因本科院校和专业而异。",
+                english: "需提供雅思等成绩"
+              }
+            },
+            { id: 13, name: "伯明翰大学", qsRank: 80, scholarship: true,
+              coreSubjects: "体育相关学科、牙科学、英语语言文学",
+              undergraduate: {
+                gaokao: "yes",
+                path: "接受高考成绩直录，要求高考总分80%以上，且高中均分85%以上。",
+                alevel: "视课程而定",
+                ib: "视课程而定",
+                english: "雅思6.5(6.0) 或 托福88"
+              },
+              postgraduate: {
+                requirement: "对中国大学有内部名单和分级，通常要求均分80-85%以上。",
+                english: "雅思6.5(6.0) 或 托福88"
+              }
+            },
+            { id: 14, name: "利兹大学", qsRank: 82, scholarship: true,
+              coreSubjects: "地理学、发展研究、地球与海洋科学",
+              undergraduate: {
+                gaokao: "yes",
+                path: "接受高考成绩直录。AAA要求对应高考80%。数学/工程学院需额外A-Level数学成绩。",
+                alevel: "BBB-AAA",
+                ib: "视课程而定",
+                english: "雅思6.0(5.5)"
+              },
+              postgraduate: {
+                requirement: "对中国大学有四级分类名单。2:1要求对应均分75%(Tier 1)至85%(Tier 3)。",
+                english: "雅思6.5(6.0)"
+              }
+            },
+            { id: 15, name: "杜伦大学", qsRank: 89, scholarship: true,
+              coreSubjects: "神学与宗教研究、考古学、地理学、古典学",
+              undergraduate: {
+                gaokao: "yes",
+                path: "接受高考成绩直录，要求总分80%以上。若课程要求A-Level数学，高考数学也需80%。",
+                alevel: "视课程而定",
+                ib: "视课程而定",
+                english: "雅思6.5至7.0"
+              },
+              postgraduate: {
+                requirement: "要求四年制学士学位，均分通常80%以上，视本科院校声誉而定。",
+                english: "雅思6.5至7.0"
+              }
+            },
+            { id: 16, name: "谢菲尔德大学", qsRank: 105, scholarship: true,
+              coreSubjects: "图书馆与信息管理、考古学、建筑学",
+              undergraduate: {
+                gaokao: "no_foundation",
+                path: "通常不接受高考直录，需完成预科。完成中国大一学习可被考虑。",
+                alevel: "视课程而定",
+                ib: "视课程而定",
+                english: "雅思最低6.0"
+              },
+              postgraduate: {
+                requirement: "对中国大学有排名分级。2:1要求对应均分75%(Top 100)至80%(Top 300)。",
+                english: "雅思最低6.5"
+              }
+            },
+            { id: 17, name: "圣安德鲁斯大学", qsRank: 104, scholarship: true,
+              coreSubjects: "神学、哲学、古典学、艺术人文",
+              undergraduate: {
+                gaokao: "no",
+                path: "不接受高考直录，要求A-Level(ABB-A*A*A)或IB(36-38)。",
+                alevel: "ABB-A*A*A",
+                ib: "36-38",
+                english: "视课程而定"
+              },
+              postgraduate: {
+                requirement: "要求优异成绩，理科硕士要求2:1同等学力。",
+                english: "视课程而定"
+              }
+            },
+            { id: 18, name: "诺丁汉大学", qsRank: 108, scholarship: true,
+              coreSubjects: "药剂与药理学、护理学、兽医学、教育学",
+              undergraduate: {
+                gaokao: "yes",
+                path: "接受高考成绩直录，要求总分75-80%。",
+                alevel: "视课程而定",
+                ib: "视课程而定",
+                english: "视课程而定"
+              },
+              postgraduate: {
+                requirement: "研究型硕士根据本科院校声誉，均分要求78-83%。",
+                english: "视课程而定"
+              }
+            },
+            { id: 19, name: "伦敦玛丽女王大学", qsRank: 120, scholarship: true,
+              coreSubjects: "法律、牙科学、医学、表演艺术",
+              undergraduate: {
+                gaokao: "no_foundation",
+                path: "不接受高考直录。高中毕业均分80%以上可申请带预科课程。",
+                alevel: "视课程而定",
+                ib: "视课程而定",
+                english: "视课程而定"
+              },
+              postgraduate: {
+                requirement: "要求2:1或2:2同等学力，需受认可的中国大学学士学位。",
+                english: "视课程而定"
+              }
+            },
+            { id: 20, name: "纽卡斯尔大学", qsRank: 129, scholarship: true,
+              coreSubjects: "牙科学、农业、建筑学、医学",
+              undergraduate: {
+                gaokao: "yes",
+                path: "接受高考成绩直录，要求总分75%以上。特定科目有额外要求。",
+                alevel: "视课程而定",
+                ib: "视课程而定",
+                english: "视课程而定"
+              },
+              postgraduate: {
+                requirement: "对中国大学有四级分类。2:1要求对应均分75%(Tier 1/2)至80%(Tier 3/4)。",
+                english: "视课程而定"
+              }
+            },
+            { id: 21, name: "兰卡斯特大学", qsRank: 141, scholarship: true,
+              coreSubjects: "语言学、市场营销、艺术与设计",
+              undergraduate: {
+                gaokao: "no_foundation",
+                path: "不接受高考直录，需完成预科课程。",
+                alevel: "AAB",
+                ib: "35",
+                english: "雅思6.5(5.5)"
+              },
+              postgraduate: {
+                requirement: "需受认可的中国大学学士学位，均分80%以上。",
+                english: "雅思6.5(5.5)"
+              }
+            },
+            { id: 22, name: "约克大学", qsRank: 167, scholarship: true,
+              coreSubjects: "考古学、英语语言文学、历史学、社会政策",
+              undergraduate: {
+                gaokao: "yes",
+                path: "接受高考成绩直录，要求总分75%以上。",
+                alevel: "视课程而定",
+                ib: "视课程而定",
+                english: "视课程而定"
+              },
+              postgraduate: {
+                requirement: "均分75-80%相当于2:1，70-75%相当于2:2，视本科院校声誉而定。",
+                english: "视课程而定"
+              }
+            },
+            { id: 23, name: "利物浦大学", qsRank: 147, scholarship: true,
+              coreSubjects: "兽医学、化学、考古学、药剂与药理学",
+              undergraduate: {
+                gaokao: "no_foundation",
+                path: "通常不接受高考直录，需完成预科或中国大一学习。",
+                alevel: "视课程而定",
+                ib: "视课程而定",
+                english: "雅思6.5"
+              },
+              postgraduate: {
+                requirement: "对中国大学有分级，顶尖大学均分75%以上，其他大学80-85%。",
+                english: "雅思6.5"
+              }
+            },
+            { id: 24, name: "雷丁大学", qsRank: 194, scholarship: true,
+              coreSubjects: "农林业、考古学、建筑学",
+              undergraduate: {
+                gaokao: "yes",
+                path: "接受高考成绩直录。AAA要求对应高考80%；AAB/ABB要求对应77%。",
+                alevel: "AAA/AAB/ABB",
+                ib: "视课程而定",
+                english: "雅思6.5"
+              },
+              postgraduate: {
+                requirement: "根据本科院校声誉，均分要求68-80%。",
+                english: "雅思6.5"
+              }
+            },
+            { id: 25, name: "卡迪夫大学", qsRank: 181, scholarship: true,
+              coreSubjects: "传媒学、牙科学、建筑学、药剂学",
+              undergraduate: {
+                gaokao: "yes",
+                path: "接受高考成绩直录，需达到要求分数，且高二高三均分不低于85%。",
+                alevel: "视课程而定",
+                ib: "视课程而定",
+                english: "雅思6.5"
+              },
+              postgraduate: {
+                requirement: "需四年制学士学位，均分约80%以上。",
+                english: "雅思6.5"
+              }
+            },
+            { id: 26, name: "埃克塞特大学", qsRank: 155, scholarship: true,
+              coreSubjects: "矿物与采矿工程、体育、环境科学、地理学",
+              undergraduate: {
+                gaokao: "no_foundation",
+                path: "不接受高考直录，需完成预科或中国大一学习。",
+                alevel: "视课程而定",
+                ib: "视课程而定",
+                english: "雅思6.5"
+              },
+              postgraduate: {
+                requirement: "均分55-65%或以上，视本科院校和课程而定。",
+                english: "雅思6.5"
+              }
+            },
+            { id: 27, name: "巴斯大学", qsRank: 150, scholarship: true,
+              coreSubjects: "体育相关学科、心理学、建筑学、市场营销",
+              undergraduate: {
+                gaokao: "yes",
+                path: "接受高考成绩直录，要求总分70%以上。",
+                alevel: "视课程而定",
+                ib: "视课程而定",
+                english: "视课程而定"
+              },
+              postgraduate: {
+                requirement: "需学士学位，均分75%以上。",
+                english: "视课程而定"
+              }
+            },
+            { id: 28, name: "贝尔法斯特女王大学", qsRank: 206, scholarship: true,
+              coreSubjects: "药剂与药理学、护理学、表演艺术",
+              undergraduate: {
+                gaokao: "yes",
+                path: "接受高考成绩直录，要求总分75%以上。特定科目有额外要求。",
+                alevel: "视课程而定",
+                ib: "视课程而定",
+                english: "视课程而定"
+              },
+              postgraduate: {
+                requirement: "根据本科院校声誉，均分要求70-85%。",
+                english: "视课程而定"
+              }
+            },
+            { id: 29, name: "阿伯丁大学", qsRank: 208, scholarship: true,
+              coreSubjects: "神学与宗教研究、石油工程、考古学",
+              undergraduate: {
+                gaokao: "no_foundation",
+                path: "不接受高考直录，需完成预科课程。",
+                alevel: "视课程而定",
+                ib: "视课程而定",
+                english: "视课程而定"
+              },
+              postgraduate: {
+                requirement: "声誉良好大学均分75%相当于2:1，70%相当于2:2。",
+                english: "视课程而定"
+              }
+            },
+            { id: 30, name: "思克莱德大学", qsRank: 251, scholarship: true,
+              coreSubjects: "酒店与休闲管理、药剂学、商科、工程学",
+              undergraduate: {
+                gaokao: "no_foundation",
+                path: "不接受高考直录，需完成预科课程。",
+                alevel: "视课程而定",
+                ib: "视课程而定",
+                english: "雅思6.5"
+              },
+              postgraduate: {
+                requirement: "需学士学位并取得良好成绩。",
+                english: "雅思6.5"
+              }
+            }
+        ];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const grid = document.getElementById('university-grid');
+            const noResults = document.getElementById('no-results');
+            const degreeLevelFilter = document.getElementById('degree-level');
+            const undergradPathFilterContainer = document.getElementById('undergrad-path-filter');
+            const undergradPathFilter = document.getElementById('undergrad-path');
+            const qsRankFilter = document.getElementById('qs-rank');
+            const searchFilter = document.getElementById('search-uni');
+            const scholarshipFilter = document.getElementById('scholarship');
+
+            const modal = document.getElementById('details-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalContent = document.getElementById('modal-content');
+            const modalCloseBtn = document.getElementById('modal-close-btn');
+
+            function getGaokaoStatus(uni) {
+                if (!uni.undergraduate || !uni.undergraduate.gaokao) return { text: 'N/A', color: 'gray' };
+                switch (uni.undergraduate.gaokao) {
+                    case 'yes': return { text: '接受高考', color: 'green' };
+                    case 'no': return { text: '不接受高考', color: 'red' };
+                    case 'no_foundation': return { text: '需读预科', color: 'yellow' };
+                    case 'no_transfer': return { text: '需转学', color: 'blue' };
+                    default: return { text: 'N/A', color: 'gray' };
+                }
+            }
+            
+            function renderCards(data) {
+                grid.innerHTML = '';
+                if (data.length === 0) {
+                    noResults.classList.remove('hidden');
+                    grid.classList.add('hidden');
+                } else {
+                    noResults.classList.add('hidden');
+                    grid.classList.remove('hidden');
+                }
+
+                data.forEach(uni => {
+                    const status = getGaokaoStatus(uni);
+                    const card = document.createElement('div');
+                    card.className = 'bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 cursor-pointer flex flex-col';
+                    card.dataset.id = uni.id;
+                    card.innerHTML = `
+                        <div class="p-5 flex-grow">
+                            <div class="flex justify-between items-start">
+                                <p class="text-xs font-semibold text-slate-500">QS #${uni.qsRank}</p>
+                                ${degreeLevelFilter.value !== 'postgraduate' ? `<span class="text-xs font-bold py-1 px-2 rounded-full bg-${status.color}-100 text-${status.color}-800">${status.text}</span>` : ''}
+                            </div>
+                            <h3 class="font-bold text-lg mt-2 text-slate-800">${uni.name}</h3>
+                            <p class="text-sm text-slate-600 mt-2 h-10 overflow-hidden">${uni.coreSubjects}</p>
+                        </div>
+                        <div class="px-5 py-3 bg-slate-50 rounded-b-lg border-t border-slate-100">
+                            <p class="text-xs text-slate-500">点击查看详情</p>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
+            }
+
+            function applyFilters() {
+                const degreeLevel = degreeLevelFilter.value;
+                const undergradPath = undergradPathFilter.value;
+                const qsRank = qsRankFilter.value;
+                const searchTerm = searchFilter.value.toLowerCase();
+                const hasScholarship = scholarshipFilter.checked;
+
+                undergradPathFilterContainer.classList.toggle('hidden', degreeLevel !== 'undergraduate');
+
+                let filteredData = universityData;
+
+                if (hasScholarship) {
+                    filteredData = filteredData.filter(uni => uni.scholarship);
+                }
+
+                if (qsRank !== 'all') {
+                    const [min, max] = qsRank.split('-').map(Number);
+                    filteredData = filteredData.filter(uni => uni.qsRank >= min && uni.qsRank <= max);
+                }
+
+                if (searchTerm) {
+                    filteredData = filteredData.filter(uni => uni.name.toLowerCase().includes(searchTerm));
+                }
+
+                if (degreeLevel === 'undergraduate' && undergradPath !== 'all') {
+                    filteredData = filteredData.filter(uni => {
+                        if (!uni.undergraduate || !uni.undergraduate.gaokao) return false;
+                        const gaokaoType = uni.undergraduate.gaokao;
+                        if (undergradPath === 'gaokao') return gaokaoType === 'yes';
+                        if (undergradPath === 'foundation') return gaokaoType.includes('foundation') || gaokaoType.includes('transfer');
+                        if (undergradPath === 'international') return gaokaoType === 'no' || gaokaoType.includes('foundation') || gaokaoType.includes('transfer');
+                        return true;
+                    });
+                }
+                
+                renderCards(filteredData);
+            }
+
+            function showModal(uni) {
+                modalTitle.textContent = `${uni.name} (QS #${uni.qsRank})`;
+                
+                const renderSection = (title, content) => {
+                    if (!content) return '';
+                    let html = `<h4 class="font-semibold text-md text-slate-700 mt-4 mb-2 border-b pb-1">${title}</h4><div class="space-y-2 text-sm text-slate-600">`;
+                    for(const [key, value] of Object.entries(content)) {
+                        html += `<p><strong>${key}:</strong> ${value}</p>`;
+                    }
+                    html += `</div>`;
+                    return html;
+                };
+
+                const ugContent = uni.undergraduate ? `
+                    <div class="mb-4">
+                        <h4 class="font-semibold text-md text-slate-700 mb-2 border-b pb-1">本科录取要求</h4>
+                        <div class="space-y-2 text-sm text-slate-600">
+                           <p><strong>申请路径:</strong> ${uni.undergraduate.path || 'N/A'}</p>
+                           <p><strong>A-Level:</strong> ${uni.undergraduate.alevel || 'N/A'}</p>
+                           <p><strong>IB:</strong> ${uni.undergraduate.ib || 'N/A'}</p>
+                           <p><strong>英语要求:</strong> ${uni.undergraduate.english || 'N/A'}</p>
+                        </div>
+                    </div>` : '<p>无本科信息</p>';
+
+                const pgContent = uni.postgraduate ? `
+                    <div>
+                        <h4 class="font-semibold text-md text-slate-700 mb-2 border-b pb-1">硕士录取要求</h4>
+                        <div class="space-y-2 text-sm text-slate-600">
+                            <p><strong>学术要求:</strong> ${uni.postgraduate.requirement || 'N/A'}</p>
+                            <p><strong>英语要求:</strong> ${uni.postgraduate.english || 'N/A'}</p>
+                        </div>
+                    </div>` : '<p>无硕士信息</p>';
+
+                modalContent.innerHTML = `
+                    <p class="text-sm bg-blue-50 text-blue-800 p-3 rounded-md"><strong>核心优势学科:</strong> ${uni.coreSubjects}</p>
+                    <p class="text-sm mt-3"><strong>奖学金信息:</strong> ${uni.scholarship ? '该校为国际学生提供奖学金机会，具体项目和金额请查询学校官网。' : '未找到明确的国际学生奖学金项目，建议查询官网确认。'}</p>
+                    <hr class="my-4">
+                    ${ugContent}
+                    <hr class="my-4">
+                    ${pgContent}
+                `;
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+
+            grid.addEventListener('click', (e) => {
+                const card = e.target.closest('[data-id]');
+                if (card) {
+                    const uniId = parseInt(card.dataset.id);
+                    const uni = universityData.find(u => u.id === uniId);
+                    if (uni) {
+                        showModal(uni);
+                    }
+                }
+            });
+
+            modalCloseBtn.addEventListener('click', () => {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            });
+            
+            modal.addEventListener('click', (e) => {
+                if(e.target === modal) {
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                }
+            });
+
+            [degreeLevelFilter, undergradPathFilter, qsRankFilter, scholarshipFilter].forEach(el => {
+                el.addEventListener('change', applyFilters);
+            });
+            searchFilter.addEventListener('input', applyFilters);
+
+            applyFilters();
+
+            const gpaCtx = document.getElementById('gpaChart').getContext('2d');
+            new Chart(gpaCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['顶尖院校 (985/双一流A类等)', '其他认可院校', '普通院校'],
+                    datasets: [{
+                        label: '申请2:1学位课程所需均分(%)',
+                        data: [82, 85, 90],
+                        backgroundColor: ['#89B3D9', '#A7C7E7', '#C4D7E9'],
+                        borderColor: ['#4A5568'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    scales: {
+                        x: {
+                            beginAtZero: false,
+                            min: 75,
+                            max: 95,
+                            title: { display: true, text: '平均分 (%)' }
+                        }
+                    },
+                    plugins: {
+                        title: { display: false },
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return ` 均分要求: ${context.raw}% 或以上`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            const scholarshipCtx = document.getElementById('scholarshipChart').getContext('2d');
+            new Chart(scholarshipCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['部分学费减免', '全额奖学金'],
+                    datasets: [{
+                        label: '奖学金类型分布',
+                        data: [95, 5],
+                        backgroundColor: ['#A7C7E7', '#E07A5F'],
+                        borderColor: '#F8F7F4',
+                        borderWidth: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: { display: false },
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20
+                            }
+                        },
+                         tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return ` ${context.label}: 约占 ${context.raw}%`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
